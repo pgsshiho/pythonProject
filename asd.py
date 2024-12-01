@@ -243,15 +243,26 @@ def start_dialog(messages):
     show_dialog = True
 
 
+dialog_last_time = 0  # 마지막 대화 진행 시간을 저장
+dialog_delay = 500  # 대화 진행 간 최소 대기 시간 (밀리초 단위)
+
+
 def handle_dialog_event():
     """마우스 클릭으로 대화 진행"""
-    global dialog_index, show_dialog
+    global dialog_index, show_dialog, dialog_last_time
+
+    current_time = pygame.time.get_ticks()  # 현재 시간 (밀리초)
+
+    if current_time - dialog_last_time < dialog_delay:  # 대기 시간이 지나지 않으면 진행 불가
+        return
+
     mouse_pressed = pygame.mouse.get_pressed()
 
     # 마우스 왼쪽 버튼 클릭 시 대화 진행
     if mouse_pressed[0]:  # 0은 왼쪽 버튼
         if dialog_index < len(dialog_text) - 1:
             dialog_index += 1  # 다음 텍스트로 넘어감
+            dialog_last_time = current_time  # 마지막 진행 시간 갱신
         else:
             show_dialog = False  # 대화가 끝나면 대화창을 닫음
 
@@ -342,7 +353,8 @@ def game_loop():
     # 게임 시작 후 첫 번째 대화
     start_dialog([
         "게임이 시작되었습니다.",
-        "여긴 아오오니의 저택..?"
+        "여긴 아오오니의 저택..?",
+        "어느새 꽃이 손에 들려있다."
     ])
 
     while not game_over:
@@ -373,8 +385,12 @@ def game_loop():
                             mouse_x, mouse_y = pygame.mouse.get_pos()
                             if x <= mouse_x <= x + TILE_SIZE and y <= mouse_y <= y + TILE_SIZE:
                                 start_dialog([door_locked_message])  # 문이 잠겨있다는 메시지 표시
-                    elif tile == 3:
+                    elif tile == 3:  # 계단 타일
                         screen.blit(assets["stairs"], (x, y))
+                        if pygame.mouse.get_pressed()[0]:  # 왼쪽 클릭
+                            mouse_x, mouse_y = pygame.mouse.get_pos()
+                            if x <= mouse_x <= x + TILE_SIZE and y <= mouse_y <= y + TILE_SIZE:
+                                start_dialog(["막혀 있다."])  # 계단 막힘 메시지 표시
                     elif tile == 4:
                         screen.blit(assets["teleport_tiles"], (x, y))
                     elif tile == 6:
@@ -403,6 +419,8 @@ def game_loop():
 
     if game_over:  # 게임 루프 종료 후 게임 오버 화면
         game_over_screen()
+
+
 
 def menu_screen():
     """
