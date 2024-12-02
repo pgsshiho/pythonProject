@@ -15,6 +15,7 @@ font_path = "C:/Users/user/Desktop/NanumGothic.otf"
 TILE_SIZE = 40
 MOVE_SPEED = 2
 game_started = False
+is_game_loaded = False  # 새 게임인지 로드된 게임인지 구분
 save_file = "save_data.json"
 chase_mode = False
 aooni_chase_time = 0
@@ -46,6 +47,8 @@ def load_game():
     else:
         print(f"Game loaded: Current map is {current_map['name']}.")
 def load_and_start_game():
+    global is_game_loaded
+    is_game_loaded = True
     load_game()  # 저장된 데이터 불러오기
     game_loop()  # 게임 루프 실행
 # 리소스 로드 함수
@@ -68,6 +71,8 @@ def load_assets():
         "main": "C:/Users/user/Desktop/Pproject/Mainmusic.wav",
         "game_over": "C:/Users/user/Desktop/Pproject/garry_s-theme.wav",
     }
+chase_active = False
+chase_counter = 0
 def load_map_data(file_path):
     global map_data, current_map
     with open(file_path, "r", encoding="utf-8") as file:
@@ -166,7 +171,7 @@ def handle_tile_interaction(player_x, player_y, current_map):
 
 # 플레이어 이동 처리
 def handle_player_movement(keys):
-    global player_pos, current_map
+    global player_pos, current_map, chase_counter, game_over, chase_active
 
     dx, dy = 0, 0
     if keys[pygame.K_UP]: dy -= MOVE_SPEED
@@ -180,6 +185,9 @@ def handle_player_movement(keys):
     # 이동 가능 여부 확인
     if can_move(new_x, new_y, current_map):
         player_pos[0], player_pos[1] = new_x, new_y
+        if chase_active:  # 추격 모드 활성화 시 이동 카운트 증가
+            chase_counter += 1
+            print(f"Chase Counter: {chase_counter}")
 
     # 플레이어 타일 좌표 확인
     tile_x = player_pos[0] // TILE_SIZE
@@ -190,6 +198,25 @@ def handle_player_movement(keys):
         if transition["x"] == tile_x and transition["y"] == tile_y:
             change_map(transition["to"])
             break
+
+    # 추격 모드에서 3번 이동 후 게임 오버
+    if chase_active and chase_counter >= 3:
+        game_over = True
+        print("You have been caught!")
+        game_over_screen()
+def start_chase_mode():
+    """추격 모드 시작"""
+    global chase_active, chase_counter
+    chase_active = True
+    chase_counter = 0  # 이동 횟수 초기화
+    play_music(assets["music"]["chase"])  # 추격 음악 재생
+
+def stop_chase_mode():
+    """추격 모드 종료"""
+    global chase_active
+    chase_active = False
+    stop_music()  # 음악 중지
+    play_music(assets["music"]["main"])  # 일반 음악 재생
 
 
 # 맵 이동 처리
@@ -345,23 +372,24 @@ def change_map(target_map_name):
 door_locked_message = "문이 잠겨 있습니다."
 
 def game_loop():
-    global game_over, current_map, dialog_index, show_dialog
+    global game_over, current_map, dialog_index, show_dialog, chase_mode
 
     clock = pygame.time.Clock()
     play_music(assets["music"]["main"])
-
-    # 게임 시작 후 첫 번째 대화
     start_dialog([
-        "게임이 시작되었습니다.",
-        "여긴 아오오니의 저택..?",
-        "어느새 꽃이 손에 들려있다."
-    ])
-
+            "게임이 시작되었습니다.",
+            "여긴 아오오니의 저택..?",
+            "어느새 꽃이 손에 들려있다."
+        ])
     while not game_over:
         dt = clock.tick(60) / 1000.0
         keys = pygame.key.get_pressed()
 
         handle_player_movement(keys)
+
+        # 추격 모드 활성화
+        if chase_mode and not chase_active:
+            start_chase_mode()
 
         # 화면 중앙에 맵 렌더링
         screen.fill(BLACK)  # 배경 검은색으로 채우기
@@ -526,6 +554,8 @@ def game_over_screen():
                     title_screen()  # 메인 타이틀로 돌아가기
                     return
 def start_game():
+    global is_game_loaded
+    is_game_loaded = False
     play_music(assets["music"]["main"])
     global paused, current_map
     paused = False
